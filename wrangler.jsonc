@@ -3,10 +3,11 @@
   "name": "f1-widget-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-14",
+  "workers_dev": true,
   "kv_namespaces": [
     {
       "binding": "F1_CACHE",
-      "id": "00000000000000000000000000000000"
+      "id": "90d1917698cf4d4f83a02551f4388cf8"
     }
   ],
   "vars": {
@@ -17,4 +18,3 @@
     "enabled": true
   }
 }
-
