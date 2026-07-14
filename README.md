@@ -2,6 +2,16 @@
 
 Cloudflare Worker backend for the F1 widget. It normalizes Jolpica data and uses Workers KV as a persistent request-driven cache.
 
+## Production
+
+Public API base URL:
+
+```text
+https://f1-widget-api.iqbalrahman-f1.workers.dev
+```
+
+The service uses the Cloudflare Workers Free plan, a free `workers.dev` hostname, and request-driven KV caching. No paid Cloudflare product or scheduled job is required.
+
 ## API
 
 - `GET /v1/drivers`
