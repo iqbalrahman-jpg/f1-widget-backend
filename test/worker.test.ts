@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CacheEntry } from "../src/cache/cache";
-import type { LatestRaceResults, ScheduleData } from "../src/domain/models";
+import type { LatestRaceResults, ScheduleData, StandingsData } from "../src/domain/models";
 import type { Env } from "../src/env";
 import worker from "../src/index";
 import { latestResults, race, schedule } from "./fixtures";
@@ -114,7 +114,7 @@ describe("Worker routes", () => {
       data: latestResults("0", "leclerc"),
     };
     await Promise.all([
-      testEnv.F1_CACHE.put("v1:schedule", JSON.stringify(scheduleEntry)),
+      testEnv.F1_CACHE.put("v2:schedule", JSON.stringify(scheduleEntry)),
       testEnv.F1_CACHE.put("v1:results", JSON.stringify(resultsEntry)),
     ]);
 
@@ -125,6 +125,62 @@ describe("Worker routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: { driverResultState: "driverNotFound", driverResult: null },
+    });
+  });
+
+  it("returns season points for the selected driver's snapshot", async () => {
+    const fetchedAt = new Date().toISOString();
+    const scheduleEntry: CacheEntry<ScheduleData> = {
+      schemaVersion: 1,
+      fetchedAt,
+      data: schedule([race({ round: "10", startDate: "2099-07-20T14:00:00.000Z" })]),
+    };
+    const resultsEntry: CacheEntry<LatestRaceResults | null> = {
+      schemaVersion: 1,
+      fetchedAt,
+      data: latestResults("9", "hamilton"),
+    };
+    const standingsEntry: CacheEntry<StandingsData> = {
+      schemaVersion: 1,
+      fetchedAt,
+      data: {
+        season: "2026",
+        round: "9",
+        standings: [
+          {
+            driverId: "hamilton",
+            position: 3,
+            points: 147,
+            wins: 1,
+            constructorName: "Ferrari",
+          },
+        ],
+      },
+    };
+    await Promise.all([
+      testEnv.F1_CACHE.put("v2:schedule", JSON.stringify(scheduleEntry)),
+      testEnv.F1_CACHE.put("v1:results", JSON.stringify(resultsEntry)),
+      testEnv.F1_CACHE.put("v1:standings", JSON.stringify(standingsEntry)),
+    ]);
+
+    const response = await worker.fetch(
+      new Request("https://example.test/v1/widget-snapshot?driverId=hamilton"),
+      testEnv,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        driverResultState: "available",
+        driverResult: { driver: { id: "hamilton" } },
+        driverStanding: {
+          driverId: "hamilton",
+          position: 3,
+          points: 147,
+          constructorName: "Ferrari",
+        },
+      },
+      meta: { standingsUpdatedAt: fetchedAt },
     });
   });
 
@@ -142,7 +198,7 @@ describe("Worker routes", () => {
       data: latestResults("9"),
     };
     await Promise.all([
-      testEnv.F1_CACHE.put("v1:schedule", JSON.stringify(scheduleEntry)),
+      testEnv.F1_CACHE.put("v2:schedule", JSON.stringify(scheduleEntry)),
       testEnv.F1_CACHE.put("v1:results", JSON.stringify(resultsEntry)),
     ]);
 
@@ -150,7 +206,12 @@ describe("Worker routes", () => {
     expect(response.status).toBe(200);
     const body = await response.json() as { data: Record<string, unknown> };
     expect(body).toMatchObject({
-      data: { raceState: { kind: "upcoming", nextRace: { round: "10" } } },
+      data: {
+        raceState: {
+          kind: "upcoming",
+          nextRace: { round: "10", circuitId: "test_circuit" },
+        },
+      },
     });
     expect(body.data).not.toHaveProperty("driverResult");
     expect(body.data).not.toHaveProperty("driverResultState");
@@ -172,7 +233,7 @@ describe("Worker routes", () => {
       data: latestResults("1"),
     };
     await Promise.all([
-      testEnv.F1_CACHE.put("v1:schedule", JSON.stringify(scheduleEntry)),
+      testEnv.F1_CACHE.put("v2:schedule", JSON.stringify(scheduleEntry)),
       testEnv.F1_CACHE.put("v1:results", JSON.stringify(resultsEntry)),
     ]);
 
@@ -188,6 +249,7 @@ describe("Worker routes", () => {
       completedRaces: 1,
       remainingRaces: 1,
       completionPercentage: 50,
+      recentRaceCountry: "Test Country",
     });
     expect(body.data).not.toHaveProperty("races");
     expect(body.data).not.toHaveProperty("driverResult");

@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   classifyStatus,
   normalizeLatestResults,
+  normalizeSchedule,
+  normalizeStandings,
+  parseNonNegativeNumber,
   parsePositivePosition,
   parseRaceStart,
 } from "../src/domain/normalizers";
-import { resultsResponseSchema } from "../src/jolpica/schemas";
+import { resultsResponseSchema, scheduleResponseSchema, standingsResponseSchema } from "../src/jolpica/schemas";
 import { rawRace, rawResult } from "./fixtures";
 
 function normalizeResult(result: ReturnType<typeof rawResult>) {
@@ -70,12 +73,83 @@ describe("result status normalization", () => {
 });
 
 describe("race time parsing", () => {
+  it("preserves the stable circuit ID", () => {
+    const response = scheduleResponseSchema.parse({
+      MRData: {
+        RaceTable: {
+          season: "2026",
+          Races: [rawRace({ round: "12", raceName: "British Grand Prix", date: "2026-07-05" })],
+        },
+      },
+    });
+
+    expect(normalizeSchedule(response).races[0]?.circuitId).toBe("test_circuit");
+  });
+
   it("converts a UTC API timestamp into an absolute ISO date", () => {
     expect(parseRaceStart("2026-07-05", "14:00:00Z")).toBe("2026-07-05T14:00:00.000Z");
   });
 
   it("keeps a missing start time unknown", () => {
     expect(parseRaceStart("2026-07-05", undefined)).toBeNull();
+  });
+});
+
+describe("standings normalization", () => {
+  it.each([
+    ["147", 147],
+    ["0.5", 0.5],
+    ["-1", 0],
+    ["invalid", 0],
+    [null, 0],
+  ])("parses %s points as %s", (input, expected) => {
+    expect(parseNonNegativeNumber(input)).toBe(expected);
+  });
+
+  it("normalizes a driver's season standing", () => {
+    const response = standingsResponseSchema.parse({
+      MRData: {
+        StandingsTable: {
+          season: "2026",
+          round: "9",
+          StandingsLists: [
+            {
+              season: "2026",
+              round: "9",
+              DriverStandings: [
+                {
+                  position: "3",
+                  points: "147",
+                  wins: "1",
+                  Driver: {
+                    driverId: "hamilton",
+                    permanentNumber: "44",
+                    code: "HAM",
+                    givenName: "Lewis",
+                    familyName: "Hamilton",
+                  },
+                  Constructors: [{ name: "Ferrari" }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(normalizeStandings(response)).toEqual({
+      season: "2026",
+      round: "9",
+      standings: [
+        {
+          driverId: "hamilton",
+          position: 3,
+          points: 147,
+          wins: 1,
+          constructorName: "Ferrari",
+        },
+      ],
+    });
   });
 });
 

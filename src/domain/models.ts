@@ -29,6 +29,7 @@ export interface RaceSummary {
   season: string;
   round: string;
   raceName: string;
+  circuitId: string;
   circuitName: string;
   locality: string;
   country: string;
@@ -65,7 +66,22 @@ export type DriverResultState = "available" | "driverNotFound" | "unavailable";
 export interface WidgetSnapshot {
   driverResultState: DriverResultState;
   driverResult: DriverRaceResult | null;
+  driverStanding: DriverStanding | null;
   raceState: RaceState;
+}
+
+export interface DriverStanding {
+  driverId: string;
+  position: number | null;
+  points: number;
+  wins: number;
+  constructorName: string | null;
+}
+
+export interface StandingsData {
+  season: string | null;
+  round: string | null;
+  standings: DriverStanding[];
 }
 
 export interface NextRaceData {
@@ -78,6 +94,7 @@ export interface SeasonProgressData {
   completedRaces: number;
   remainingRaces: number;
   completionPercentage: number;
+  recentRaceCountry: string | null;
 }
 
 export interface ResponseMeta {
@@ -86,6 +103,7 @@ export interface ResponseMeta {
   scheduleUpdatedAt: string | null;
   resultsUpdatedAt: string | null;
   driversUpdatedAt: string | null;
+  standingsUpdatedAt: string | null;
 }
 
 export interface ApiEnvelope<T> {

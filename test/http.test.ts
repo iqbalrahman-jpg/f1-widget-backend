@@ -10,6 +10,7 @@ describe("HTTP caching", () => {
       scheduleUpdatedAt: null,
       resultsUpdatedAt: null,
       driversUpdatedAt: null,
+      standingsUpdatedAt: null,
     },
   };
 

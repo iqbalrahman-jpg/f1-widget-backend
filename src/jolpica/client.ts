@@ -3,9 +3,11 @@ import {
   driversResponseSchema,
   resultsResponseSchema,
   scheduleResponseSchema,
+  standingsResponseSchema,
   type DriversResponse,
   type ResultsResponse,
   type ScheduleResponse,
+  type StandingsResponse,
 } from "./schemas";
 
 export class UpstreamError extends Error {
@@ -40,6 +42,10 @@ export class JolpicaClient {
 
   getLatestResults(): Promise<ResultsResponse> {
     return this.get("current/last/results.json", resultsResponseSchema);
+  }
+
+  getDriverStandings(): Promise<StandingsResponse> {
+    return this.get("current/driverStandings.json", standingsResponseSchema);
   }
 
   private async get<T>(path: string, schema: { safeParse: (input: unknown) => { success: true; data: T } | { success: false } }): Promise<T> {
@@ -79,4 +85,3 @@ export class JolpicaClient {
     }
   }
 }
-

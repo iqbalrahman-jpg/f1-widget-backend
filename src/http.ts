@@ -19,6 +19,7 @@ export async function jsonResponse<T>(
       scheduleUpdatedAt: envelope.meta.scheduleUpdatedAt,
       resultsUpdatedAt: envelope.meta.resultsUpdatedAt,
       driversUpdatedAt: envelope.meta.driversUpdatedAt,
+      standingsUpdatedAt: envelope.meta.standingsUpdatedAt,
     },
   });
   const etag = `"${await sha256(etagPayload)}"`;

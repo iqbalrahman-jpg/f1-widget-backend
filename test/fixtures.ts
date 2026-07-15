@@ -11,6 +11,7 @@ export function rawRace(options: {
     round: options.round,
     raceName: options.raceName,
     Circuit: {
+      circuitId: "test_circuit",
       circuitName: `${options.raceName} Circuit`,
       Location: { locality: "Test City", country: "Test Country" },
     },
@@ -52,6 +53,7 @@ export function race(options: {
     season: "2026",
     round: options.round,
     raceName: options.raceName ?? `Race ${options.round}`,
+    circuitId: "test_circuit",
     circuitName: "Test Circuit",
     locality: "Test City",
     country: "Test Country",
@@ -92,4 +94,3 @@ export function latestResults(round: string, driverId = "leclerc"): LatestRaceRe
     ],
   };
 }
-

@@ -6,8 +6,9 @@ import type {
   RaceSummary,
   ResultStatus,
   ScheduleData,
+  StandingsData,
 } from "./models";
-import type { DriversResponse, ResultsResponse, ScheduleResponse } from "../jolpica/schemas";
+import type { DriversResponse, ResultsResponse, ScheduleResponse, StandingsResponse } from "../jolpica/schemas";
 
 function optionalText(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
@@ -18,6 +19,12 @@ export function parsePositivePosition(value: string | null | undefined): number 
   if (!value || !/^\d+$/.test(value)) return null;
   const parsed = Number.parseInt(value, 10);
   return parsed > 0 ? parsed : null;
+}
+
+export function parseNonNegativeNumber(value: string | null | undefined): number {
+  if (!value) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export function parseRaceStart(date: string, time: string | null | undefined): string | null {
@@ -64,7 +71,7 @@ function normalizeRace(raw: {
   season: string;
   round: string;
   raceName: string;
-  Circuit: { circuitName: string; Location: { locality: string; country: string } };
+  Circuit: { circuitId: string; circuitName: string; Location: { locality: string; country: string } };
   date: string;
   time?: string | null | undefined;
 }): RaceSummary {
@@ -72,6 +79,7 @@ function normalizeRace(raw: {
     season: raw.season,
     round: raw.round,
     raceName: raw.raceName,
+    circuitId: raw.Circuit.circuitId,
     circuitName: raw.Circuit.circuitName,
     locality: raw.Circuit.Location.locality,
     country: raw.Circuit.Location.country,
@@ -125,5 +133,22 @@ export function normalizeLatestResults(response: ResultsResponse): LatestRaceRes
     raceDate: race.date,
     startDate: parseRaceStart(race.date, race.time),
     results,
+  };
+}
+
+export function normalizeStandings(response: StandingsResponse): StandingsData {
+  const table = response.MRData.StandingsTable;
+  const list = table.StandingsLists[0];
+
+  return {
+    season: list?.season ?? table.season ?? null,
+    round: list?.round ?? table.round ?? null,
+    standings: (list?.DriverStandings ?? []).map((standing) => ({
+      driverId: standing.Driver.driverId,
+      position: parsePositivePosition(standing.position),
+      points: parseNonNegativeNumber(standing.points),
+      wins: Math.trunc(parseNonNegativeNumber(standing.wins)),
+      constructorName: optionalText(standing.Constructors[0]?.name),
+    })),
   };
 }

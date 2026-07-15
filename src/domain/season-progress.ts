@@ -14,11 +14,15 @@ export function calculateSeasonProgress(
   const totalRaces = races.length;
 
   let completedRaces = 0;
+  let recentRaceCountry: string | null = null;
   if (latestResults && latestResults.season === season) {
     const latestCompletedIndex = races.findIndex(
       (race) => race.season === latestResults.season && race.round === latestResults.round,
     );
-    if (latestCompletedIndex >= 0) completedRaces = latestCompletedIndex + 1;
+    if (latestCompletedIndex >= 0) {
+      completedRaces = latestCompletedIndex + 1;
+      recentRaceCountry = races[latestCompletedIndex]?.country ?? null;
+    }
   }
 
   const remainingRaces = totalRaces - completedRaces;
@@ -32,6 +36,6 @@ export function calculateSeasonProgress(
     completedRaces,
     remainingRaces,
     completionPercentage,
+    recentRaceCountry,
   };
 }
-

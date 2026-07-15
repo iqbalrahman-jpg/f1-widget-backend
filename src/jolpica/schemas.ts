@@ -9,6 +9,7 @@ const driverSchema = z.object({
 });
 
 const circuitSchema = z.object({
+  circuitId: z.string().min(1),
   circuitName: z.string().min(1),
   Location: z.object({
     locality: z.string().min(1),
@@ -65,7 +66,35 @@ export const resultsResponseSchema = z.object({
   }),
 });
 
+const driverStandingSchema = z.object({
+  position: z.string().nullish(),
+  points: z.string().nullish(),
+  wins: z.string().nullish(),
+  Driver: driverSchema,
+  Constructors: z.array(
+    z.object({
+      name: z.string().min(1),
+    }),
+  ),
+});
+
+export const standingsResponseSchema = z.object({
+  MRData: z.object({
+    StandingsTable: z.object({
+      season: z.string().nullish(),
+      round: z.string().nullish(),
+      StandingsLists: z.array(
+        z.object({
+          season: z.string().nullish(),
+          round: z.string().nullish(),
+          DriverStandings: z.array(driverStandingSchema),
+        }),
+      ),
+    }),
+  }),
+});
+
 export type ScheduleResponse = z.infer<typeof scheduleResponseSchema>;
 export type DriversResponse = z.infer<typeof driversResponseSchema>;
 export type ResultsResponse = z.infer<typeof resultsResponseSchema>;
-
+export type StandingsResponse = z.infer<typeof standingsResponseSchema>;

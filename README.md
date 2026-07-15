@@ -17,7 +17,7 @@ The service uses the Cloudflare Workers Free plan, a free `workers.dev` hostname
 - `GET /v1/drivers`
 - `GET /v1/drivers?search=vers` — searches ID, code, name, and driver number
 - `GET /v1/races/next` — next-race or current race state without driver data
-- `GET /v1/races/season-progress` — current-season completion totals and percentage
+- `GET /v1/races/season-progress` — current-season completion totals, percentage, and latest completed race country
 - `GET /v1/widget-snapshot?driverId=leclerc`
 - `GET /healthz`
 
@@ -42,10 +42,18 @@ Example widget response:
       "positionsChanged": 1,
       "status": { "kind": "finished", "label": "Finished" }
     },
+    "driverStanding": {
+      "driverId": "leclerc",
+      "position": 4,
+      "points": 108,
+      "wins": 1,
+      "constructorName": "Ferrari"
+    },
     "raceState": {
       "kind": "upcoming",
       "nextRace": {
         "raceName": "Belgian Grand Prix",
+        "circuitId": "spa",
         "circuitName": "Circuit de Spa-Francorchamps",
         "locality": "Spa",
         "country": "Belgium",
@@ -59,7 +67,8 @@ Example widget response:
     "stale": false,
     "scheduleUpdatedAt": "2026-07-14T04:30:41.802Z",
     "resultsUpdatedAt": "2026-07-14T04:30:41.802Z",
-    "driversUpdatedAt": null
+    "driversUpdatedAt": null,
+    "standingsUpdatedAt": "2026-07-14T04:30:41.802Z"
   }
 }
 ```
@@ -71,6 +80,7 @@ The backend owns cache freshness. Clients never call Jolpica directly and do not
 | Schedule | 12 hours |
 | Drivers | 7 days |
 | Latest results | 24 hours normally; 1 hour after a race starts until its results appear |
+| Driver standings | 6 hours |
 
 When an entry is stale, the request attempts to refresh it before responding. If Jolpica fails, the last successful KV value is returned with `meta.stale: true`. A cold-cache failure returns HTTP 503.
 

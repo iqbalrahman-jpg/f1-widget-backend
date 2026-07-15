@@ -1,4 +1,4 @@
-import { getOrRefresh, readCache, type ResourceResult } from "./cache/cache";
+import { getOrRefresh, readCache, ResourceUnavailableError, type ResourceResult } from "./cache/cache";
 import type {
   ApiEnvelope,
   DriversData,
@@ -7,9 +7,10 @@ import type {
   ResponseMeta,
   ScheduleData,
   SeasonProgressData,
+  StandingsData,
   WidgetSnapshot,
 } from "./domain/models";
-import { normalizeDrivers, normalizeLatestResults, normalizeSchedule } from "./domain/normalizers";
+import { normalizeDrivers, normalizeLatestResults, normalizeSchedule, normalizeStandings } from "./domain/normalizers";
 import { filterDrivers } from "./domain/driver-search";
 import { resultsFreshnessMs, selectRaceState } from "./domain/race-state";
 import { calculateSeasonProgress } from "./domain/season-progress";
@@ -17,13 +18,15 @@ import type { Env } from "./env";
 import { JolpicaClient } from "./jolpica/client";
 
 const KEYS = {
-  schedule: "v1:schedule",
+  schedule: "v2:schedule",
   drivers: "v1:drivers",
   results: "v1:results",
+  standings: "v1:standings",
 } as const;
 
 const SCHEDULE_FRESHNESS_MS = 12 * 60 * 60 * 1_000;
 const DRIVERS_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1_000;
+const STANDINGS_FRESHNESS_MS = 6 * 60 * 60 * 1_000;
 
 export class F1Service {
   private readonly client: JolpicaClient;
@@ -61,13 +64,24 @@ export class F1Service {
         ? "available"
         : "driverNotFound";
 
+    let standings: ResourceResult<StandingsData> | undefined;
+    if (selectedResult) {
+      try {
+        standings = await this.standingsResource();
+      } catch (error) {
+        if (!(error instanceof ResourceUnavailableError)) throw error;
+      }
+    }
+    const driverStanding = standings?.data.standings.find((item) => item.driverId === driverId) ?? null;
+
     return {
       data: {
         driverResultState,
         driverResult: selectedResult,
+        driverStanding,
         raceState: selectRaceState(schedule.data, results.data, this.now),
       },
-      meta: this.meta({ schedule, results }),
+      meta: this.meta({ schedule, results, ...(standings ? { standings } : {}) }),
     };
   }
 
@@ -117,11 +131,23 @@ export class F1Service {
     return { schedule, results };
   }
 
+  private standingsResource(): Promise<ResourceResult<StandingsData>> {
+    return getOrRefresh({
+      kv: this.env.F1_CACHE,
+      key: KEYS.standings,
+      resourceName: "standings",
+      freshnessMs: STANDINGS_FRESHNESS_MS,
+      now: this.now,
+      load: async () => normalizeStandings(await this.client.getDriverStandings()),
+    });
+  }
+
   async health(): Promise<Record<string, unknown>> {
-    const [schedule, drivers, results] = await Promise.all([
+    const [schedule, drivers, results, standings] = await Promise.all([
       readCache<ScheduleData>(this.env.F1_CACHE, KEYS.schedule),
       readCache<DriversData>(this.env.F1_CACHE, KEYS.drivers),
       readCache<LatestRaceResults | null>(this.env.F1_CACHE, KEYS.results),
+      readCache<StandingsData>(this.env.F1_CACHE, KEYS.standings),
     ]);
 
     return {
@@ -131,6 +157,7 @@ export class F1Service {
         scheduleUpdatedAt: schedule?.fetchedAt ?? null,
         driversUpdatedAt: drivers?.fetchedAt ?? null,
         resultsUpdatedAt: results?.fetchedAt ?? null,
+        standingsUpdatedAt: standings?.fetchedAt ?? null,
       },
     };
   }
@@ -139,13 +166,20 @@ export class F1Service {
     schedule?: ResourceResult<ScheduleData>;
     results?: ResourceResult<LatestRaceResults | null>;
     drivers?: ResourceResult<DriversData>;
+    standings?: ResourceResult<StandingsData>;
   }): ResponseMeta {
     return {
       generatedAt: this.now.toISOString(),
-      stale: Boolean(resources.schedule?.stale || resources.results?.stale || resources.drivers?.stale),
+      stale: Boolean(
+        resources.schedule?.stale ||
+        resources.results?.stale ||
+        resources.drivers?.stale ||
+        resources.standings?.stale
+      ),
       scheduleUpdatedAt: resources.schedule?.fetchedAt ?? null,
       resultsUpdatedAt: resources.results?.fetchedAt ?? null,
       driversUpdatedAt: resources.drivers?.fetchedAt ?? null,
+      standingsUpdatedAt: resources.standings?.fetchedAt ?? null,
     };
   }
 }
